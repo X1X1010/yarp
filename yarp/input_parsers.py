@@ -1,6 +1,6 @@
-from rdkit.Chem import AllChem,rdchem,BondType,MolFromSmiles,Draw,Atom,AddHs,HybridizationType,rdmolfiles
+from rdkit.Chem import AllChem,rdchem,BondType,MolFromSmiles,Atom,AddHs,rdmolfiles
 from yarp.smiles import smiles2adjmat
-from yarp.find_lewis import find_lewis,return_expanded
+from yarp.find_lewis import find_lewis
 from yarp.properties import el_to_an,el_n_expand_octet,el_expand_octet
 from yarp.smiles import OctetError
 
@@ -254,7 +254,7 @@ def xyz_from_smiles(smiles,mode="rdkit"):
         # loop over atoms, save their labels, positions, and total charge
         for i in range(N_atoms):
             atom = m.GetAtomWithIdx(i)
-            elements += [atom.GetSymbol()]
+            elements.append(atom.GetSymbol())
             coord = m.GetConformer().GetAtomPosition(i)
             geo[i] = np.array([coord.x,coord.y,coord.z])
             q += atom.GetFormalCharge()
@@ -288,7 +288,7 @@ def mol_parse(mol):
     q=0
     for i in range(N_atoms):
         atom = m.GetAtomWithIdx(i)
-        elements += [atom.GetSymbol()]
+        elements.append(atom.GetSymbol())
         coord = m.GetConformer().GetAtomPosition(i)
         geo[i] = np.array([coord.x,coord.y,coord.z])
         q += atom.GetFormalCharge()

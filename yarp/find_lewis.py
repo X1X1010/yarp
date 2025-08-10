@@ -8,16 +8,16 @@ import itertools
 import numpy as np
 from copy import copy,deepcopy
 
-from yarp.taffi_functions import adjmat_to_adjlist,return_ring_atoms,return_rings,graph_seps
+from yarp.taffi_functions import adjmat_to_adjlist,return_rings,graph_seps
 from yarp.hashes import bmat_hash
-from yarp.properties import el_to_an,an_to_el,el_valence,el_n_deficient,el_expand_octet,el_en,el_pol,el_max_valence,el_n_expand_octet,el_metals
+from yarp.properties import el_valence,el_n_deficient,el_expand_octet,el_en,el_pol,el_n_expand_octet,el_metals
 
 def main(argv):
 
     # These imports are here just for this main convenience function for testing
-    from rdkit.Chem import AllChem,rdchem,BondType,MolFromSmiles,Draw,Atom,AddHs,HybridizationType    
+    from rdkit.Chem import AllChem,MolFromSmiles,Draw,Atom,AddHs,HybridizationType    
     from yarp.taffi_functions import table_generator
-    from yarp.input_parsers import xyz_parse,xyz_q_parse,xyz_from_smiles
+    from yarp.input_parsers import xyz_parse,xyz_q_parse
     
     # run find_lewis on command-line supplied molecule
     if argv:
@@ -45,7 +45,7 @@ def main(argv):
                 # loop over atoms, save their labels, positions, and total charge
                 for i in range(N_atoms):
                     atom = m.GetAtomWithIdx(i)
-                    elements += [atom.GetSymbol()]
+                    elements.append(atom.GetSymbol())
                     coord = m.GetConformer().GetAtomPosition(i)
                     geo[i] = np.array([coord.x,coord.y,coord.z])
                     q += atom.GetFormalCharge()
@@ -181,8 +181,8 @@ def find_lewis(elements,adj_mat,q=0,rings=None,mats_max=10,mats_thresh=10.0,w_de
     for score,bond_mat,reactive in gen_init(obj_fun,adj_mat,elements,rings,q):
         count += 1
         if bmat_unique(bond_mat,bond_mats):
-            scores += [score]
-            bond_mats += [bond_mat]
+            scores.append(score)
+            bond_mats.append(bond_mat)
             hashes.add(bmat_hash(bond_mat))
             bond_mats,scores,_,_,_ = gen_all_lstructs(obj_fun,bond_mats,scores,hashes,elements,reactive,rings,ring_atoms,bridgeheads,seps=np.zeros([len(elements),len(elements)]), min_score=scores[0], ind=len(bond_mats)-1,N_score=1000,N_max=10000,min_win=100.0,min_opt=True)
     # Update objective function to include (anti)aromaticity considerations and update scores of the current bmats
@@ -411,7 +411,7 @@ def gen_init(obj_fun,adj_mat,elements,rings,q):
                     bond_mat_tmp[count_j,count_i] += -1
                     bond_mat_tmp[count_i,count_i] += 1
                     bond_mat_tmp[count_j,count_j] += 1                    
-                    corrs += [(-1,count_i,count_j),(-1,count_j,count_i),(1,count_i,count_i),(1,count_j,count_j)]
+                    corrs.extend([(-1,count_i,count_j),(-1,count_j,count_i),(1,count_i,count_i),(1,count_j,count_j)])
     bond_mat = bond_mat_tmp
 
     # Correct atoms with negative charge using q (if anions)
@@ -626,8 +626,8 @@ def gen_all_lstructs(obj_fun, bond_mats, scores, hashes, elements, reactive, rin
                 if counter == 0:
                     # Check that the resulting bond_mat is not already in the existing bond_mats
                     if b_hash not in hashes: 
-                        bond_mats += [tmp]
-                        scores += [score]
+                        bond_mats.append(tmp)
+                        scores.append(score)
                         hashes.add(b_hash)
 
                         # Recursively call this function with the updated bond_mat resulting from this iteration's move. 
@@ -641,8 +641,8 @@ def gen_all_lstructs(obj_fun, bond_mats, scores, hashes, elements, reactive, rin
 
                         # Check that the resulting bond_mat is not already in the existing bond_mats
                         if b_hash not in hashes: 
-                            bond_mats += [tmp]
-                            scores += [score]
+                            bond_mats.append(tmp)
+                            scores.append(score)
                             hashes.add(b_hash)
                         
                             # Recursively call this function with the updated bond_mat resulting from this iteration's move. 
@@ -655,8 +655,8 @@ def gen_all_lstructs(obj_fun, bond_mats, scores, hashes, elements, reactive, rin
                     # Check that the resulting bond_mat is not already in the existing bond_mats
                     if b_hash not in hashes:
                     
-                        bond_mats += [tmp]
-                        scores += [score]
+                        bond_mats.append(tmp)
+                        scores.append(score)
                         hashes.add(b_hash)
 
                         # Recursively call this function with the updated bond_mat resulting from this iteration's move. 
@@ -877,7 +877,7 @@ def valid_moves(bond_mat,elements,reactive,rings,ring_atoms,bridgeheads,seps):
 
                     # bonds are created in the forward direction.
                     if bond_mat[j,prev_atom] > 1:
-                        move += [(-1,j,prev_atom),(-1,prev_atom,j),(1,j,next_atom),(1,next_atom,j)]
+                        move.extend([(-1,j,prev_atom),(-1,prev_atom,j),(1,j,next_atom),(1,next_atom,j)])
 
                     # If there is no double-bond (between j and the next or previous) then the shuffle does not apply.
                     # Note: lone pair and electron deficient aromatic moves are handled via Moves 3 and 1 above, respectively. Pi shuffles are only handled here.

@@ -360,7 +360,7 @@ class ORCA:
 
         for lc in range(start_line,start_line+len(E)*3):
             fields = lines[lc].split()
-            imag_mode += [float(fields[position])]
+            imag_mode.append(float(fields[position]))
             
         # reshape and normalize imag_mode
         # first time massi**0.5 to convert to normal displacement

@@ -3,19 +3,16 @@ This module contains the yarpecule class and associated helper functions.
 """
 
 import sys
-import itertools
-import timeit
 import os
 import numpy as np
-from rdkit.Chem import AllChem,rdchem,BondType,MolFromSmiles,Draw,Atom,AddHs,HybridizationType
+from rdkit.Chem import AllChem,rdchem,BondType,MolFromSmiles,Draw,Atom
 
 from yarp.taffi_functions import table_generator,return_rings,adjmat_to_adjlist,canon_order
-from yarp.properties import el_to_an,an_to_el,el_mass
-from yarp.find_lewis import find_lewis,return_formals,return_n_e_accept,return_n_e_donate,return_formals,return_connections,return_bo_dict
+from yarp.properties import el_to_an,el_mass
+from yarp.find_lewis import find_lewis,return_formals,return_n_e_accept,return_n_e_donate,return_formals,return_bo_dict
 from yarp.hashes import atom_hash,yarpecule_hash
 from yarp.input_parsers import xyz_parse,xyz_q_parse,xyz_from_smiles,mol_parse
 from yarp.misc import merge_arrays, prepare_list
-from yarp.smiles import smiles2adjmat
 
 def main(argv):
 
@@ -383,7 +380,7 @@ def draw_yarpecules(yarpecules,name,label_ind=False,mol_labels=None):
                 # For each atom, set the property "molAtomMapNumber" to the index of a atom 
                 atom.SetProp("molAtomMapNumber", str(atom.GetIdx()+1))
             
-        mols += [mol]    
+        mols.append(mol)
     # save the molecule
     if len(mols) <= 3:
         n_per_row = len(mols)
@@ -446,7 +443,7 @@ def draw_bmats(yarpecule,name):
             mol.GetAtomWithIdx(count_j).UpdatePropertyCache()
         # generate coordinates
         AllChem.Compute2DCoords(mol)
-        mols += [mol]    
+        mols.append(mol)
 
 
     # save the molecule

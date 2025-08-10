@@ -294,8 +294,8 @@ def check_multi_molecule(adj,geo,factor='auto'):
     for i in range(len(gs)):
         if i not in loop_ind:
             new_group = [count_j for count_j,j in enumerate(gs[i,:]) if j >= 0]
-            loop_ind += new_group
-            groups   += [new_group]
+            loop_ind.extend(new_group)
+            groups.append(new_group)
 
     # if only one fragment, return True
     if len(groups) == 1: return True
@@ -308,8 +308,8 @@ def check_multi_molecule(adj,geo,factor='auto'):
         for i in group:
             center += geo[i,:]/float(len(group))
 
-        centers += [center]
-        radius  += [max([ np.linalg.norm(geo[i,:]-center) for i in group])]
+        centers.append(center)
+        radius.append(max([ np.linalg.norm(geo[i,:]-center) for i in group]))
 
     # iterate over all paris of centers
     combs = combinations(range(len(centers)), 2)
@@ -324,9 +324,9 @@ def check_multi_molecule(adj,geo,factor='auto'):
     for comb in combs:
         dis = np.linalg.norm(centers[comb[0]]-centers[comb[1]])
         if dis > factor * (radius[comb[0]]+radius[comb[1]]):
-            satisfy += [False]
+            satisfy.append(False)
         else:
-            satisfy += [True]
+            satisfy.append(True)
 
     return (False not in satisfy)
 

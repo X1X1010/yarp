@@ -309,8 +309,8 @@ class Gaussian:
         E,G = [],[]
         for count in range(start_ind,end_ind):
             fields = lines[count].split()
-            E += [invert_periodic[float(fields[1])]]
-            G += [[float(fields[3]),float(fields[4]),float(fields[5])]]
+            E.append(invert_periodic[float(fields[1])])
+            G.append(float(fields[3]),float(fields[4]),float(fields[5])])
         
         return E, np.array(G)
 
@@ -343,7 +343,7 @@ class Gaussian:
                 fields = lines[count].split()
                 if Frequencies_found and len(fields) == 11: 
                     if all(isinstance(item, float) for item in fields):
-                        mode += [[float(fields[2]),float(fields[3]),float(fields[4])]]
+                        mode.append(list(map(float, fields[2:5]))) # take the first three values after "Frequencies --"
         #for count in range(imag_line+14,imag_line+self.natoms+14):
         #    fields = lines[count].split()
         return np.array(mode)
@@ -373,7 +373,7 @@ class Gaussian:
         for count in range(count_start,count_end):
             fields = lines[count].split()
             if fields[0] in geo_dict.keys():
-                geo_dict[fields[0]] += [float(value) for value in fields[1:]]
+                geo_dict[fields[0]].extend([float(value) for value in fields[1:]])
 
         # parse energy, iternal coord, and geometry
         Energy = []

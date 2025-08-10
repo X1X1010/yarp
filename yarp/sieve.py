@@ -4,12 +4,12 @@ performs substructure matching on yarpecules.
 """
 
 from collections import deque
-from itertools import combinations,combinations_with_replacement,permutations,product
+from itertools import combinations,permutations,product
 from yarp.taffi_functions import adjmat_to_adjlist
 from yarp.misc import prepare_list
 from yarp.properties import el_n_deficient,el_expand_octet
 from yarp.find_lewis import return_e
-import numpy as np
+
 
 valid_smiles_tokens = {'Br', 'C', 'Cl', 'H', 'B', 'N', 'O', 'P', 'S', 'F', 'I', 'b', 'c', 'n', 'o', 's', 'p', \
                        '(', ')', '[', ']', '=', '#', '%', '1', '2', '3', '4', '5', '6', '7', '8', '9', '+', '-', \
@@ -102,7 +102,7 @@ def smarts_match(smarts,yarpecule):
             while growing_paths:            
                 growing_paths = [ i + [j] for i in growing_paths for j in adj_list[i[-1]] if j != i[-2] ]            
                 move_inds = [ count for count,_ in enumerate(growing_paths) if ( _[-1] in terminals or _[-1] in visited ) ]
-                final_paths += [ growing_paths.pop(_) for _ in sorted(move_inds, reverse=True) ]            
+                final_paths.extend([ growing_paths.pop(_) for _ in sorted(move_inds, reverse=True) ])           
 
                 # drop growing_paths and final_paths that return False
                 growing_paths_bools = compare_paths_els([ [ yarpecule.elements[i] for i in _ ] for _ in growing_paths ],e_paths)
@@ -399,13 +399,12 @@ def pattern_to_path(pattern):
             for i in extended_paths:
                 # If the extended path terminates on a node that has already been visited, then the walk is finished
                 if i[-1] in visited:
-                    final_paths += [i] 
+                    final_paths.append(i)
                 # Otherwise the growing_paths list is repopulated with the extended walks so that it can be popped in the future.
                 else:
                     growing_paths.append(i)
-# old                    growing_paths += [i]
         else:
-            final_paths += [path]
+            final_paths.append(path)
         # The list of nodes that have been explored off of is updated
         visited.add(path[-1])
         z += 1
@@ -567,9 +566,9 @@ def sieve_valency_violations(yarpecules,inverse=False):
     for count_y,y in enumerate(yarpecules):
         violation = is_valency_violation(y)
         if inverse and violation:
-            keep_ind += [count_y]
+            keep_ind.append(count_y)
         elif not violation:
-            keep_ind += [count_y]
+            keep_ind.append(count_y)
     return [ yarpecules[_] for _ in keep_ind ]
 
 

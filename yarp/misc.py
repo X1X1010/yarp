@@ -1,10 +1,11 @@
 """
 This module contains miscillaneous helper functions used by other components of the yarp library
 """
+from copy import copy
 
 import numpy as np
 
-from yarp.taffi_functions import gen_subgraphs
+from yarp.taffi_functions import gen_subgraphs, graph_seps
 
 def merge_arrays(list_of_arrays):
     """
@@ -177,7 +178,7 @@ def gen_labels_for_smiles(y,atom_mapping=False):
             explicit = False
         else:
             explicit = True
-        labels += [(i.title(),explicit,int(len([ _ for count,_ in enumerate(y.adj_mat[count_i]) if ( _ == 1 and y.elements[count] == "h" and sum(y.adj_mat[count]) == 1 ) ])),None,None)]
+        labels.extend([(i.title(),explicit,int(len([ _ for count,_ in enumerate(y.adj_mat[count_i]) if ( _ == 1 and y.elements[count] == "h" and sum(y.adj_mat[count]) == 1 ) ])),None,None)])
     return labels
 
 

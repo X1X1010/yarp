@@ -6,8 +6,6 @@ from copy import copy
 from itertools import combinations
 from yarp.yarpecule import yarpecule
 from yarp.misc import prepare_list,merge_arrays
-from yarp.sieve import is_valency_violation
-from yarp.yarpecule import draw_yarpecules
 from numpy import vstack
 
 def form_bonds(yarpecules,react=[],hashes=None,inter=False,intra=True,def_only=False,hash_filter=True):

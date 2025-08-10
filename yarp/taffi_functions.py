@@ -3,14 +3,10 @@ This module contains miscellaneous functions borrowed from the taffi package tha
 useful for yarp.
 """
 
-import sys,argparse,os,time,math,subprocess
-import random
-import ast
-import collections
+import os,subprocess
 import numpy as np
 from scipy.spatial.distance import cdist
 from copy import copy,deepcopy
-from itertools import combinations
 
 from yarp.hashes import atom_hash
 from yarp.properties import el_radii,el_max_bonds,el_mass
@@ -260,7 +256,7 @@ def canon_order(elements,adj_mat,masses=None,hash_list=None,things_to_order=[],c
                 tmp = tmp[:,atoms]
         except:
             pass
-        ordered_things += [tmp]
+        ordered_things.append(tmp)
 
     if return_index:
         return tuple([elements,adj_mat,hash_list,atoms]+ordered_things)
@@ -300,7 +296,7 @@ def gen_subgraphs(adj_mat,gs=None):
         if i not in loop_ind:
             new_subgraph = set([count_j for count_j,j in enumerate(gs[i,:]) if j >= 0]) # collect indices of atoms in the same sugraph as i (if reachable then >=0 due to graph_seps algorithm) 
             loop_ind.update(new_subgraph) # append indides of atoms in the same subgraph as i to the set of atoms that have been assigned a subgraph
-            subgraphs   += [new_subgraph] # append the set of atoms in the current subgraph to a new subgraph
+            subgraphs.append(new_subgraph) # append the set of atoms in the current subgraph to a new subgraph
     return subgraphs        
 
         
@@ -391,7 +387,7 @@ def return_rings(adj_list,max_size=20,remove_fused=True):
     rings=[]
     ring_size_list=range(max_size+1)[3:] # starts at 3
     for i in range(len(adj_list)):
-        rings += [ _ for _ in return_ring_atoms(adj_list,i,ring_size=max_size,convert=False) if _ not in rings ]
+        rings.extend([ _ for _ in return_ring_atoms(adj_list,i,ring_size=max_size,convert=False) if _ not in rings ])
 
     # Remove fused rings based on if another ring's atoms wholly intersect a given ring
     if remove_fused:
@@ -400,7 +396,7 @@ def return_rings(adj_list,max_size=20,remove_fused=True):
             if count_i in del_ind:
                 continue
             else:
-                del_ind += [ count for count,_ in enumerate(rings) if count != count_i and count not in del_ind and  i.intersection(_) == i ]         
+                del_ind.extend([ count for count,_ in enumerate(rings) if count != count_i and count not in del_ind and  i.intersection(_) == i ])
         del_ind = set(del_ind)        
 
         # ring_path is used to convert the ring sets into actual ordered sets of indices that create the ring

@@ -14,6 +14,7 @@ import multiprocessing as mp
 from multiprocessing import Queue
 from logging.handlers import QueueHandler
 from concurrent.futures import ProcessPoolExecutor, TimeoutError
+from scipy.sparse.csgraph import shortest_path
 
 from ase import io
 from ase.build import minimize_rotation_and_translation
@@ -278,7 +279,7 @@ def separate_mols(E,G,q,molecule, adj_mat=None,namespace='sep', verbose = False,
     # generate adj mat
     if adj_mat is None: adj_mat = table_generator(E, G)
     # Seperate reactant(s)
-    gs      = graph_seps(adj_mat)
+    gs      = shortest_path(adj_mat, directed=False, unweighted=True)
     if verbose:
         print(f"gs: {gs}, len(gs): {len(gs)}, q = {q}\n", flush = True)
 
@@ -309,8 +310,8 @@ def separate_mols(E,G,q,molecule, adj_mat=None,namespace='sep', verbose = False,
         for i in range(len(gs)):
             if i not in loop_ind:
                 new_group =[count_j for count_j,j in enumerate(gs[i,:]) if j >= 0]
-                loop_ind += new_group
-                groups   +=[new_group]
+                loop_ind.extend(new_group)
+                groups.append(new_group)
 
     # Determine the inchikey of all components in the reactant
     mols = {}
@@ -398,8 +399,8 @@ def check_multi_molecule(adj,geo,factor='auto'):
     for i in range(len(gs)):
         if i not in loop_ind:
             new_group = [count_j for count_j,j in enumerate(gs[i,:]) if j >= 0]
-            loop_ind += new_group
-            groups   += [new_group]
+            loop_ind.extend(new_group)
+            groups.append(new_group)
 
     # if only one fragment, return True
     if len(groups) == 1: return True
@@ -412,8 +413,8 @@ def check_multi_molecule(adj,geo,factor='auto'):
         for i in group:
             center += geo[i,:]/float(len(group))
 
-        centers += [center]
-        radius  += [max([ np.linalg.norm(geo[i,:]-center) for i in group])]
+        centers.append(center)
+        radius.append(max([ np.linalg.norm(geo[i,:]-center) for i in group]))
 
     # iterate over all paris of centers
     combs = combinations(range(len(centers)), 2)
@@ -428,9 +429,9 @@ def check_multi_molecule(adj,geo,factor='auto'):
     for comb in combs:
         dis = np.linalg.norm(centers[comb[0]]-centers[comb[1]])
         if dis > factor * (radius[comb[0]]+radius[comb[1]]):
-            satisfy += [False]
+            satisfy.append(False)
         else:
-            satisfy += [True]
+            satisfy.append(True)
 
     return (False not in satisfy)
 
