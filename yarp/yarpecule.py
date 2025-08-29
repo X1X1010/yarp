@@ -5,7 +5,8 @@ This module contains the yarpecule class and associated helper functions.
 import sys
 import os
 import numpy as np
-from rdkit.Chem import AllChem,rdchem,BondType,MolFromSmiles,Draw,Atom
+from rdkit import Chem
+from rdkit.Chem import AllChem, Draw
 
 from yarp.taffi_functions import table_generator,return_rings,adjmat_to_adjlist,canon_order
 from yarp.properties import el_to_an,el_mass
@@ -13,6 +14,17 @@ from yarp.find_lewis import find_lewis,return_formals,return_n_e_accept,return_n
 from yarp.hashes import atom_hash,yarpecule_hash
 from yarp.input_parsers import xyz_parse,xyz_q_parse,xyz_from_smiles,mol_parse
 from yarp.misc import merge_arrays, prepare_list
+
+
+bond_to_type = {
+    0: Chem.BondType.DATIVE,
+    1: Chem.BondType.SINGLE,
+    2: Chem.BondType.DOUBLE,
+    3: Chem.BondType.TRIPLE,
+    4: Chem.BondType.QUADRUPLE,
+    5: Chem.BondType.QUINTUPLE,
+    6: Chem.BondType.HEXTUPLE,
+}
 
 def main(argv):
 
@@ -289,7 +301,56 @@ class yarpecule:
         elements = [ e for y in all_y for e in y.elements ]
         q = int(sum([ _.q for _ in all_y ]))
         return yarpecule((adj_mat,geo,elements,q),canon=canon)
+    
+    def to_rdkit_mol(self, explicit_hydgens=False) -> Chem.Mol:
+        """
+        Function for converting a yarpecule object to an rdkit molecule. 
+
+        Returns
+        -------
+        mol: Mol
+             The rdkit molecule that corresponds to the yarpecule.
+        """
+        # initialize the molecule
+        mol = Chem.MolFromSmiles("C")
+        mol = Chem.rdchem.RWMol(mol)
+        mol.RemoveAtom(0)
+        # add atoms
+        for element in self.elements:
+            mol.AddAtom(Chem.Atom(el_to_an[element]))
+        # add bonds
+        for j, adj_neigh in enumerate(self.adj_mat):
+            for k in range(j):
+                if adj_neigh[k] != 0:
+                    mol.AddBond(j, k, bond_to_type[self.bond_mats[0][j, k]])
+        # set explicit H-atoms and formals
+        fc = return_formals(self.bond_mats[0], self.elements)
+        for j, bond_nums in enumerate(self.bond_mats[0]):
+            atom = mol.GetAtomWithIdx(j)
+            atom.SetNumExplicitHs(0)
+            atom.SetFormalCharge(int(fc[j]))
+            atom.SetNumRadicalElectrons(int(bond_nums[j] % 2))
+            try:
+                atom.UpdatePropertyCache()
+            except:
+                print(f"Failed to update property cache for atom {j}")
         
+        # remove hydrogens if not shown
+        if not explicit_hydgens:
+            mol = Chem.RemoveHs(mol)
+        return mol
+
+    def to_smiles(self) -> str:
+        """
+        Function for converting a yarpecule object to a smiles string. 
+
+        Returns
+        -------
+        smiles: str
+                The smiles string that corresponds to the yarpecule.
+        """
+        return Chem.MolToSmiles(self.to_rdkit_mol())
+
     # dunders
     def __eq__(self, other):
         return self.hash == other.hash
@@ -335,40 +396,11 @@ def draw_yarpecules(yarpecules,name,label_ind=False,mol_labels=None):
         print(f"Skipping draw_yarpecules() call. {len(yarpecules)} is too many for rdkit to render")
         return
 
-    # Initialize the preferred lone electron dictionary the first time this function is called
-    if not hasattr(draw_yarpecules, "bond_to_type"):
-        draw_yarpecules.bond_to_type = { 0:BondType.DATIVE, 1:BondType.SINGLE, 2:BondType.DOUBLE, 3:BondType.TRIPLE, 4:BondType.QUADRUPLE, 5:BondType.QUINTUPLE, 6:BondType.HEXTUPLE }
 
     # loop over yarpecules, create an rdkit mol for each, then plot on a grid 
     mols = []
-    for count_i,i in enumerate(yarpecules):                
-        # throwaway molecule
-        mol = MolFromSmiles("C")
-        mol = rdchem.RWMol(mol)
-        mol.RemoveAtom(0)
-        # add atoms
-        [ mol.AddAtom(Atom(el_to_an[_])) for _ in i.elements ]
-        # add bonds
-        for count_j,j in enumerate(i.adj_mat):
-            for count_k,k in enumerate(j):
-                if count_k<count_j:
-                    if k == 0:
-                        continue
-                    else:
-                        mol.AddBond(count_j,count_k,draw_yarpecules.bond_to_type[i.bond_mats[0][count_j,count_k]])
-                else:
-                    break
-        # set explicit H-atoms and formals
-        fc = return_formals(i.bond_mats[0],[ _.lower() for _ in i.elements ])
-        for count_j,j in enumerate(i.bond_mats[0]):
-            atom = mol.GetAtomWithIdx(count_j)
-            mol.GetAtomWithIdx(count_j).SetNumExplicitHs(0)
-            mol.GetAtomWithIdx(count_j).SetFormalCharge(int(fc[count_j]))
-            mol.GetAtomWithIdx(count_j).SetNumRadicalElectrons(int(j[count_j]%2))
-            try:
-                mol.GetAtomWithIdx(count_j).UpdatePropertyCache()
-            except:
-                print(f"problem is with atom {count_j=} {fc[count_j]=} {i.bond_mat_scores[0]=}:\n{i.elements}\n{i.adj_mat}\n{i.bond_mats[0]}")
+    for y in enumerate(yarpecules):                
+        mol = y.to_rdkit_mol()
 
         # generate coordinates
         AllChem.Compute2DCoords(mol)
@@ -381,15 +413,16 @@ def draw_yarpecules(yarpecules,name,label_ind=False,mol_labels=None):
                 atom.SetProp("molAtomMapNumber", str(atom.GetIdx()+1))
             
         mols.append(mol)
+    
     # save the molecule
     if len(mols) <= 3:
         n_per_row = len(mols)
     else:
         n_per_row = 3
     if mol_labels:
-        img = Draw.MolsToGridImage(mols,subImgSize=(400, 400),molsPerRow=n_per_row,legends=[ str(_) for _ in mol_labels])
+        img = Draw.MolsToGridImage(mols,subImgSize=(400, 400),molsPerRow=n_per_row,legends=[ str(_) for _ in mol_labels], returnPNG=False)
     else:
-        img = Draw.MolsToGridImage(mols,subImgSize=(400, 400),molsPerRow=n_per_row)        
+        img = Draw.MolsToGridImage(mols,subImgSize=(400, 400),molsPerRow=n_per_row, returnPNG=False)        
     img.save(name)
     return
         
@@ -411,18 +444,15 @@ def draw_bmats(yarpecule,name):
     None
     """
     
-    # Initialize the preferred lone electron dictionary the first time this function is called
-    if not hasattr(draw_bmats, "bond_to_type"):
-        draw_bmats.bond_to_type = { 0:BondType.DATIVE, 1:BondType.SINGLE, 2:BondType.DOUBLE, 3:BondType.TRIPLE, 4:BondType.QUADRUPLE, 5:BondType.QUINTUPLE, 6:BondType.HEXTUPLE }
     # loop over bond_mats, create an rdkit mol for each, then plot on a grid with the scores
     mols = []
     for count_i,i in enumerate(yarpecule.bond_mats):                
         # throwaway molecule
-        mol = MolFromSmiles("C")
-        mol = rdchem.RWMol(mol)
+        mol = Chem.MolFromSmiles("C")
+        mol = Chem.rdchem.RWMol(mol)
         mol.RemoveAtom(0)
         # add atoms
-        [ mol.AddAtom(Atom(el_to_an[_])) for _ in yarpecule.elements ]
+        [ mol.AddAtom(Chem.Atom(el_to_an[_])) for _ in yarpecule.elements ]
         # add bonds
         for count_j,j in enumerate(yarpecule.adj_mat):
             for count_k,k in enumerate(j):
@@ -430,7 +460,7 @@ def draw_bmats(yarpecule,name):
                     if k == 0:
                         continue
                     else:
-                        mol.AddBond(count_j,count_k,draw_bmats.bond_to_type[i[count_j,count_k]])  
+                        mol.AddBond(count_j,count_k, bond_to_type[i[count_j,count_k]])  
                 else:
                     break                    
         # set explicit H-atoms and formals

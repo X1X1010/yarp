@@ -1,11 +1,8 @@
 """
 This module contains miscillaneous helper functions used by other components of the yarp library
 """
-from copy import copy
-
 import numpy as np
 
-from yarp.taffi_functions import gen_subgraphs, graph_seps
 
 def merge_arrays(list_of_arrays):
     """
@@ -71,74 +68,6 @@ def prepare_list(x):
         return x
     else:
         return [x]
-
-def yarpecule_to_smiles(y,canon=False,atom_mapping=False):
-    """
-    Function for generating the SMILES string that corresponds to a yarpecule. 
-    
-    Parameters
-    ----------
-    y: yarpecule
-       A yarpecule object that the function will generate the SMILES for.
-
-    canon: boolean, default=False
-           If the user wants to force the generation of a canonical SMILES string, then the yarpecule
-           is first subjected to a canonicalization procedure to guarrantee the atom ordering. This is
-           more expensive (default = False)
-
-    atom_mapping: boolean, default=False
-                 This controls whether the atom indexing in the molecule is outputted as part of the SMILES string. 
-                 Ordinarily this option should only be used if the canon option is also False, otherwise the atom
-                 labeling loses whatever significance that it began with. (default: False)
-
-    Returns
-    -------
-    smiles: str
-            The smiles string corresponding to the yarpecule.
-    """
-
-    # To ensure reproducibility the yarpecule should be canonicalized.
-    if canon:
-        y = copy(y)
-        y.canonicalize()
-
-    # Grab subgraphs
-    subgraphs = gen_subgraphs(y.adj_mat)
-    print(f"{subgraphs=}")
-
-    # Grab atom_labels
-    labels = gen_labels_for_smiles(y,atom_mapping)
-    print(f"{labels=}")
-
-    # Generate the smiles for each subgraph
-    smiles = [] # holds the smiles of each subgraph
-    for s in subgraphs:
-
-        # Seed the search with the longest path in the subgraph
-        s_adj_mat = y.adj_mat[s][:,s]
-        seps = graph_seps(s_adj_mat)
-        max_ind = np.where(seps == seps.max())
-        start,end =  max_ind[0][0],max_ind[1][0]
-
-        # Find the shortest pathway between these points
-        pathway = Dijkstra(s_adj_mat,start,end)
-
-        
-        paths = []
-        for p in paths:
-            smiles_for_path = gen_smiles_for_path(y,p)
-
-    #         # attach the path to the rest of the molecule
-    #         if not is_termainal(p[0]):
-    #             attach_first_atom
-    #         if not is_termainl(p[1]):
-    #             attach_second_atom
-                
-    # # join the subgraphs
-    # smiles = ".".join(smiles)
-
-    # return smiles
-
 
 def gen_labels_for_smiles(y,atom_mapping=False):
     """
