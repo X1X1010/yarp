@@ -4,6 +4,7 @@ This module contains the yarpecule class and associated helper functions.
 
 import sys
 import os
+from typing import List, Any
 import numpy as np
 from rdkit import Chem
 from rdkit.Chem import AllChem, Draw
@@ -122,20 +123,22 @@ class yarpecule:
     -------
     self : yarpecule instance
     """        
-
+    geo: np.ndarray
+    adj_mat: np.ndarray
+    elements: List[str]
+    q: int
     # Constructor
-    def __init__(self,mol,canon=True,mode="rdkit"):
+    def __init__(self, mol: Any, canon: bool = True, mode: str = "rdkit"):
 
         # direct branch: user passes core attributes directly
-        if isinstance(mol,(tuple,list)) and len(mol) == 4:
+        if isinstance(mol, (tuple, list)) and len(mol) == 4:
             # consistency checks
-            if ( isinstance(mol[0],np.ndarray) is False or\
-                 isinstance(mol[1],np.ndarray) is False or\
-                 isinstance(mol[2],list) is False or\
-                 isinstance(mol[3],int) is False ):
-                raise TypeError("The yarpecule constructor expects a string or a tuple containing (adj_mat,geo,elements,q).")
-            elif ( len(mol[0]) != len(mol[1]) or len(mol[0]) != len(mol[2]) ):
-                raise TypeError("The size of the adjacency array, geometry array, and elements list do not match.")
+            assert isinstance(mol[0], np.ndarray), "The first item should be an adjacency matrix."
+            assert isinstance(mol[1], np.ndarray), "The second item should be a geometry array."
+            assert isinstance(mol[2], list), "The third item should be a list of elements."
+            assert isinstance(mol[3], int), "The fourth item should be an integer charge."
+            assert len(mol[0]) == len(mol[1]), "The adjacency matrix and geometry array should have the same number of atoms."
+            assert len(mol[0]) == len(mol[2]), "The adjacency matrix and elements list should have the same number of atoms."
             # assign core attributes
             self.adj_mat = mol[0]
             self.geo = mol[1]
@@ -143,32 +146,32 @@ class yarpecule:
             self.q = mol[3]
 
         # xyz branch
-        elif len(mol)>4 and mol[-4:] == ".xyz":
+        elif isinstance(mol, str) and mol.endswith(".xyz"):
             self.elements, self.geo = xyz_parse(mol)
             self.adj_mat = table_generator(self.elements,self.geo)
             self.q = xyz_q_parse(mol)
 
         # mol branch
-        elif len(mol)>4 and mol[-4:] == ".mol":
+        elif isinstance(mol, str) and mol.endswith(".mol"):
             self.elements, self.geo, self.q, _, _ = mol_parse(mol)
 
         # SMILES branch
         else:
             try:
-                self.elements, self.geo, self.adj_mat, self.q = xyz_from_smiles(mol,mode=mode)
+                self.elements, self.geo, self.adj_mat, self.q = xyz_from_smiles(mol, mode=mode)
             except:
                 raise TypeError("The yarpecule constructor expects either an xyz file, mol file, or a smiles string.")
 
         # Calculate elementary attributes
-        self.elements = [ _.lower() for _ in self.elements ] # eventually all functions will expect lowercase element labels
-        self.masses = np.array([ el_mass[_] for _ in self.elements ]) # User can update via mass update function.
+        self.elements = [element.lower() for element in self.elements] # eventually all functions will expect lowercase element labels
+        self.masses = np.array([el_mass[element] for element in self.elements]) # User can update via mass update function.
         
         # Canonicalize the atom indexing, or directly calculate atom hashes if not
         if canon:
             self.elements, self.adj_mat, self.atom_hashes,self.mapping, self.geo, self.masses = canon_order(self.elements,self.adj_mat,masses=self.masses,things_to_order=[self.geo,self.masses]) # standardizes the atom indexing
         else:
-            self.atom_hashes = np.array([ atom_hash(_,self.adj_mat,self.masses) for _ in range(len(self.elements)) ])
-            self.mapping = list(range(len(self)))
+            self.atom_hashes = np.array([atom_hash(i, self.adj_mat, self.masses) for i in range(len(self.elements))])
+            self.mapping = list(range(len(self.elements)))
 
         # Calculate other basic attributes that depend on atom indexing
         self.find_basic_attributes()
@@ -340,7 +343,7 @@ class yarpecule:
             mol = Chem.RemoveHs(mol)
         return mol
 
-    def to_smiles(self) -> str:
+    def to_smiles(self, explicit_hydgens=False) -> str:
         """
         Function for converting a yarpecule object to a smiles string. 
 
@@ -349,10 +352,24 @@ class yarpecule:
         smiles: str
                 The smiles string that corresponds to the yarpecule.
         """
-        return Chem.MolToSmiles(self.to_rdkit_mol())
+        return Chem.MolToSmiles(self.to_rdkit_mol(explicit_hydgens=explicit_hydgens))
+
+    def to_xyz(self, file: str, append: bool = False) -> None:
+        """
+        Function for converting a yarpecule object to an xyz string. 
+
+        Returns
+        -------
+        xyz: str
+             The xyz string that corresponds to the yarpecule.
+        """
+        with open(file, "a" if append else "w") as f:
+            f.write(f"{len(self)}\n\n")
+            for i, element in enumerate(self.elements):
+                f.write(f"{element.capitalize():<2} {self.geo[i, 0]:12.6f} {self.geo[i, 1]:12.6f} {self.geo[i, 2]:12.6f}\n")
 
     # dunders
-    def __eq__(self, other):
+    def __eq__(self, other: "yarpecule"):
         return self.hash == other.hash
 
     def __hash__(self):
